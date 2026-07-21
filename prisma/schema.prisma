@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Currency {
+  USD
+  PHP
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+}
+
+enum FundType {
+  SAVINGS
+  EMERGENCY
+  LUXE
+}
+
+enum ExpenseSource {
+  MANUAL
+  RECEIPT
+}
+
+enum ReceiptStatus {
+  UPLOADED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AlertType {
+  NEAR_LIMIT
+  OVER_LIMIT
+}
+
+model User {
+  id           String           @id @default(cuid())
+  name         String?
+  email        String           @unique
+  passwordHash String
+  profile      FinanceProfile?
+  categories   Category[]
+  funds        FundAllocation[]
+  expenses     Expense[]
+  receipts     Receipt[]
+  pushTokens   PushToken[]
+  alerts       BudgetAlert[]
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model FinanceProfile {
+  id       String       @id @default(cuid())
+  userId   String       @unique
+  income   Decimal      @db.Decimal(14, 2)
+  currency Currency     @default(USD)
+  period   BudgetPeriod @default(MONTHLY)
+
+  monthlyStartDay Int @default(1)
+  weeklyStartDay  Int @default(1)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id        String        @id @default(cuid())
+  userId    String
+  name      String
+  icon      String?
+  color     String?
+  limit     Decimal       @db.Decimal(14, 2)
+  sortOrder Int           @default(0)
+  isActive  Boolean       @default(true)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  alerts    BudgetAlert[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, isActive])
+}
+
+model FundAllocation {
+  id         String   @id @default(cuid())
+  userId     String
+  type       FundType
+  name       String
+  percentage Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, type])
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  userId        String
+  categoryId    String
+  receiptId     String?       @unique
+  title         String
+  amount        Decimal       @db.Decimal(14, 2)
+  expenseDate   DateTime
+  source        ExpenseSource @default(MANUAL)
+  merchant      String?
+  notes         String?
+  paymentMethod String?
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  receipt       Receipt?      @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId, expenseDate])
+  @@index([categoryId, expenseDate])
+}
+
+model Receipt {
+  id                  String        @id @default(cuid())
+  userId              String
+  fileName            String
+  originalName        String
+  mimeType            String
+  filePath            String
+  status              ReceiptStatus @default(UPLOADED)
+  extractedTitle      String?
+  extractedAmount     Decimal?      @db.Decimal(14, 2)
+  extractedDate       DateTime?
+  suggestedCategoryId String?
+  rawResult           Json?
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expense             Expense?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model BudgetAlert {
+  id         String    @id @default(cuid())
+  userId     String
+  categoryId String
+  type       AlertType
+  periodKey  String
+  spent      Decimal   @db.Decimal(14, 2)
+  limit      Decimal   @db.Decimal(14, 2)
+  percentage Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, categoryId, type, periodKey])
+  @@index([userId, createdAt])
+}
