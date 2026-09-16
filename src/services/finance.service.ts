@@ -796,7 +796,7 @@ export const financeService = {
 
     const plannedSavings = Math.max(income - totalBudget, 0);
 
-    const remainingBalance = income - totalExpenses;
+    const remainingBalance = income - plannedSavings - totalExpenses;
 
     const savingsAllocation = funds.map((fund) => ({
       id: fund.id,

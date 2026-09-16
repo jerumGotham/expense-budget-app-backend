@@ -11,7 +11,10 @@ export const alertService = {
     if (!category || !profile || Number(category.limit) <= 0) return [];
 
     const filter = profile.period === "WEEKLY" ? "weekly" : "monthly";
-    const { start, end, periodKey } = getPeriodRange(filter, expenseDate);
+    const { start, end, periodKey } = getPeriodRange(filter, expenseDate, {
+      monthlyStartDay: profile.monthlyStartDay,
+      weeklyStartDay: profile.weeklyStartDay
+    });
 
     const aggregate = await prisma.expense.aggregate({
       where: {
@@ -25,6 +28,14 @@ export const alertService = {
     const spent = Number(aggregate._sum.amount ?? 0);
     const limit = Number(category.limit);
     const percentage = Math.round((spent / limit) * 100);
+    const remaining = Math.max(limit - spent, 0);
+    const overage = Math.max(spent - limit, 0);
+    const currencySymbol = profile.currency === "PHP" ? "₱" : "$";
+    const formatAmount = (amount: number) =>
+      `${currencySymbol}${amount.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}`;
     const alerts = [];
 
     if (percentage >= 80) {
@@ -58,11 +69,18 @@ export const alertService = {
       alerts.push({
         id: alert.id,
         type: type === "OVER_LIMIT" ? "over_limit" : "near_limit",
-        title: type === "OVER_LIMIT" ? "Budget exceeded" : "Budget warning",
+        title:
+          spent > limit
+            ? "Budget exceeded"
+            : spent === limit
+              ? "Budget limit reached"
+              : "Budget warning",
         body:
-          type === "OVER_LIMIT"
-            ? `You have used ${percentage}% of your ${category.name} budget.`
-            : `You are close to your ${category.name} budget at ${percentage}%.`,
+          spent > limit
+            ? `${category.name} is ${formatAmount(overage)} over its budget (${percentage}% used).`
+            : spent === limit
+              ? `${category.name} has reached its ${formatAmount(limit)} budget limit.`
+              : `${category.name} is at ${percentage}% with ${formatAmount(remaining)} remaining.`,
         categoryId,
         percentage
       });

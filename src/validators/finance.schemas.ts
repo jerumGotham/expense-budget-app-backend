@@ -15,18 +15,16 @@ export const saveBudgetSchema = z.object({
 
   weeklyStartDay: z.number().int().min(0).max(6),
 
-  categories: z
-    .array(
-      z.object({
-        id: z.string().optional(),
-        name: z.string().trim().min(1).max(60),
-        limit: z.number().nonnegative(),
-        icon: z.string().max(20).optional(),
-        color: z.string().max(20).optional(),
-        sortOrder: z.number().int().nonnegative().optional(),
-      }),
-    )
-    .min(1),
+  categories: z.array(
+    z.object({
+      id: z.string().optional(),
+      name: z.string().trim().min(1).max(60),
+      limit: z.number().nonnegative(),
+      icon: z.string().max(20).optional(),
+      color: z.string().max(20).optional(),
+      sortOrder: z.number().int().nonnegative().optional(),
+    }),
+  ),
 
   funds: z
     .array(
